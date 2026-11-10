@@ -1,0 +1,184 @@
+# Multi-Branch Enterprise Network Lab (Cisco Packet Tracer)
+
+A simulated two-site enterprise network for a fictional apparel manufacturer, **Fashionista (Pvt) Ltd**, with a head office in **Colombo** and a new branch in **Kegalle**. Designed, addressed (VLSM), configured and tested in Cisco Packet Tracer.
+
+> This is a personal lab project based on a simulated scenario. It is not a production or real-client network.
+
+![Topology](diagrams/topology.png)
+
+---
+
+## Scenario
+
+| Site | Floors | Main areas |
+|---|---|---|
+| Colombo (HQ) | 3 | Reception/Customer Services (Wi-Fi), Designers, Maintenance, Administration, Manufacturing, Directors, Boardroom (video conferencing + Wi-Fi), HR (fingerprint scanner), Accounting & Finance, IT, Server Room |
+| Kegalle (branch) | 2 | Reception, Customer Services (Wi-Fi), Manufacturing (2 embroidery plants), 14 IP cameras, Administration, HR (fingerprint scanner), Accounting & Finance, IT, Server Room |
+
+### Requirements
+
+- Every department on its own subnet/VLAN
+- Secured Wi-Fi in the Boardroom and Customer Services areas
+- Inter-branch connectivity with inter-VLAN routing and a dynamic routing protocol
+- Own IP range with VLSM subnetting (10.1.0.0/16)
+- All PCs obtain addresses from a DHCP server
+- Server room on **20.0.0.0/24** with static IPs
+
+---
+
+## Design Summary
+
+- **Topology:** hierarchical star at each site (Layer 3 core switch, floor access switches), point-to-point WAN link between the branch routers
+- **Addressing:** VLSM from `10.1.0.0/16`. Colombo uses `10.1.0.0/24`, Kegalle uses `10.1.1.0/24`
+- **VLANs:** 20 in total (11 Colombo departments + 1 server VLAN + 8 Kegalle)
+- **Routing:** inter-VLAN routing on L3 core switches (SVIs), RIP v2 (`no auto-summary`, passive interfaces) between sites
+- **DHCP:** one central server in Colombo, with `ip helper-address` relay on every SVI (including Kegalle, over the WAN)
+- **Services:** DNS, Web (HTTP), Email (SMTP/POP3), File (FTP), all in `20.0.0.0/24`
+- **Security:** WPA2-PSK (AES) on Wi-Fi, SSH v2 for device management, native VLAN 1 on all trunks, VLAN separation per department
+
+### Design decision and trade-off
+
+All application servers are centralised at Colombo. This lowers Kegalle's cost and administration effort, but Kegalle depends on the WAN link for DHCP, DNS, email and file access. A backup WAN or VPN link is the first recommended enhancement.
+
+---
+
+## Colombo Addressing
+
+| VLAN | Department | Network | Gateway |
+|---|---|---|---|
+| 10 | Reception / Customer Services (Wi-Fi) | 10.1.0.0/27 | 10.1.0.1 |
+| 20 | Admin Floor 1 | 10.1.0.32/27 | 10.1.0.33 |
+| 30 | Boardroom (Wi-Fi) | 10.1.0.64/27 | 10.1.0.65 |
+| 40 | Maintenance | 10.1.0.96/27 | 10.1.0.97 |
+| 50 | Admin Floor 2 | 10.1.0.128/27 | 10.1.0.129 |
+| 60 | Manufacturing | 10.1.0.160/28 | 10.1.0.161 |
+| 70 | Designers | 10.1.0.176/28 | 10.1.0.177 |
+| 80 | Accounting & Finance | 10.1.0.192/28 | 10.1.0.193 |
+| 90 | HR | 10.1.0.208/28 | 10.1.0.209 |
+| 100 | Directors | 10.1.0.224/28 | 10.1.0.225 |
+| 110 | IT Support | 10.1.0.240/29 | 10.1.0.241 |
+| 200 | Servers | 20.0.0.0/24 | 20.0.0.1 |
+
+## Kegalle Addressing
+
+| VLAN | Department | Network | Gateway |
+|---|---|---|---|
+| 130 | Customer Services (Wi-Fi) | 10.1.1.0/27 | 10.1.1.1 |
+| 140 | Manufacturing | 10.1.1.32/27 | 10.1.1.33 |
+| 150 | Administration | 10.1.1.64/27 | 10.1.1.65 |
+| 160 | Accounting & Finance | 10.1.1.96/27 | 10.1.1.97 |
+| 170 | IP Cameras / NVR | 10.1.1.128/27 | 10.1.1.129 |
+| 120 | Reception | 10.1.1.160/28 | 10.1.1.161 |
+| 180 | HR | 10.1.1.176/28 | 10.1.1.177 |
+| 190 | IT | 10.1.1.192/28 | 10.1.1.193 |
+
+## Point-to-Point Links
+
+| Link | Network | Side A | Side B |
+|---|---|---|---|
+| Colombo to Kegalle (WAN) | 10.1.0.248/30 | R-COL Gi0/1 = .249 | R-KEG Gi0/1 = .250 |
+| CORE-SW to R-COL | 10.1.0.252/30 | CORE-SW Gi0/1 = .253 | R-COL Gi0/0 = .254 |
+| CORE-KEG to R-KEG | 10.1.1.208/30 | CORE-KEG Gi0/1 = .209 | R-KEG Gi0/0 = .210 |
+
+## Servers (static, 20.0.0.0/24)
+
+| Server | IP | Service |
+|---|---|---|
+| DHCP | 20.0.0.10 | DHCP pools for both sites |
+| DNS | 20.0.0.11 | A records for www, mail, files (fashionista.lk) |
+| Web | 20.0.0.12 | HTTP |
+| Email | 20.0.0.13 | SMTP / POP3 |
+| File | 20.0.0.14 | FTP |
+
+---
+
+## Devices
+
+| Site | Devices |
+|---|---|
+| Colombo | R-COL (Cisco 2911), CORE-SW (3560-24PS), SW-SRV, SW-F1/F2/F3 (2960), 2 access points, 5 servers |
+| Kegalle | R-KEG (Cisco 2911), CORE-KEG (3560-24PS), SW-K1, SW-K2 (2960), 1 access point |
+
+---
+
+## Testing and Verification
+
+| # | Test | Command / Action | Expected | Result |
+|---|---|---|---|---|
+| 1 | DHCP lease (Colombo) | PC set to DHCP | IP in department range | ✅ / ❌ |
+| 2 | DHCP lease (Kegalle, via relay) | PC set to DHCP | 10.1.1.x address | ✅ / ❌ |
+| 3 | Inter-VLAN routing | `ping` between departments | Reply | ✅ / ❌ |
+| 4 | Inter-site routing | `ping` Colombo to Kegalle | Reply | ✅ / ❌ |
+| 5 | Route table | `show ip route` | RIP routes to remote site | ✅ / ❌ |
+| 6 | Path | `tracert 20.0.0.12` from Kegalle | SVI, R-KEG, R-COL, CORE-SW, server | ✅ / ❌ |
+| 7 | DNS | `nslookup www.fashionista.lk` | 20.0.0.12 | ✅ / ❌ |
+| 8 | Web | Browser to `www.fashionista.lk` | Page loads | ✅ / ❌ |
+| 9 | Email | Send/receive, including cross-site | Mail received | ✅ / ❌ |
+| 10 | File transfer | `ftp 20.0.0.14`, `put`, `get` | Login and transfer succeed | ✅ / ❌ |
+| 11 | Secure management | `ssh -l <user> <router IP>` | Login succeeds, wrong password rejected | ✅ / ❌ |
+| 12 | Wi-Fi security | Laptop joins WPA2 SSID | Connects only with correct key | ✅ / ❌ |
+
+_Replace the ✅ / ❌ marks with your actual results, and add screenshots under `docs/`._
+
+---
+
+## Sample Configuration
+
+Configs in `configs/` have passwords and keys removed.
+
+```
+! L3 core: SVI with DHCP relay
+interface vlan 20
+ ip address 10.1.0.33 255.255.255.224
+ ip helper-address 20.0.0.10
+ no shutdown
+
+! RIP v2
+router rip
+ version 2
+ no auto-summary
+ network 10.0.0.0
+ network 20.0.0.0
+ passive-interface default
+ no passive-interface gigabitEthernet 0/1
+```
+
+---
+
+## Troubleshooting Notes
+
+- **CDP native VLAN mismatch:** caused by different native VLANs on the two ends of a link. Fixed by using native VLAN 1 on every trunk and making the server-room uplink an access port in VLAN 200 on both sides.
+- **DHCP failing (169.254.x.x):** checked SVI state, `ip helper-address`, trunk allowed VLANs, access-port VLAN, DHCP pool gateway and routing to `20.0.0.0/24`.
+
+---
+
+## Future Enhancements
+
+- Backup WAN or VPN link to remove the single point of failure
+- Redundant core switch or EtherChannel uplinks
+- Firewall at the WAN edge
+- ACLs limiting SSH to the IT VLAN, then AAA (TACACS+/RADIUS)
+- Move from RIP to OSPF as the network grows
+- SFTP/FTPS in place of plain FTP
+- Monitoring (SNMP/syslog) and a documented maintenance schedule
+
+---
+
+## Repository Structure
+
+```
+fashionista-network-project/
+├── README.md
+├── network.pkt
+├── configs/        # device configs (secrets removed)
+├── diagrams/       # topology and logical diagrams
+└── docs/           # test screenshots and results
+```
+
+## Tools
+
+Cisco Packet Tracer, Microsoft Visio, VLSM, VLAN/802.1Q, RIP v2, DHCP relay, DNS, SSH
+
+## Author
+
+Your Name · [LinkedIn](https://www.linkedin.com/in/your-profile)
